@@ -1,7 +1,7 @@
 #include <iostream>
 #include <vector>
-#include <chrono>
 #include <thread>
+#include <chrono>
 #include <numeric>
 #include <cmath>
 #include <algorithm>
@@ -21,33 +21,32 @@ void sumVectors(const std::vector<int>& v1, const std::vector<int>& v2, std::vec
 }
 
 int main() {
-    // Получение количества доступных ядер
     setlocale(LC_ALL, "Russian");
+    // Получаем количество доступных аппаратных ядер
     int num_threads = std::thread::hardware_concurrency();
     std::cout << "Доступное количество аппаратных ядер: " << num_threads << std::endl;
 
     std::vector<int> sizes = { 1000, 10000, 100000, 1000000 };
 
-    for (int size : sizes) {
-        std::vector<int> vec1(size);
-        std::vector<int> vec2(size);
-        std::vector<int> result(size);
+    // Выводим заголовок таблицы
+    std::cout << "Потоки\t1000\t10000\t100000\t1000000" << std::endl;
 
-        fillVector(vec1);
-        fillVector(vec2);
+    for (int num_threads = 1; num_threads <= 16; num_threads *= 2) {
+        std::vector<long long> durations;
 
-        std::vector<std::thread> threads;
+        for (int size : sizes) {
+            std::vector<int> vec1(size);
+            std::vector<int> vec2(size);
+            std::vector<int> result(size);
 
-        for (int num_threads = 2; num_threads <= 16; num_threads *= 2) {
-            std::vector<std::chrono::steady_clock::time_point> start_times(num_threads);
-            std::vector<std::chrono::steady_clock::time_point> end_times(num_threads);
-            std::vector<long long> durations(num_threads);
+            fillVector(vec1);
+            fillVector(vec2);
 
-            for (int i = 0; i < num_threads; ++i) {
-                start_times[i] = std::chrono::steady_clock::now();
-            }
+            std::chrono::steady_clock::time_point start_time = std::chrono::steady_clock::now();
 
             int chunk_size = std::ceil(static_cast<double>(size) / num_threads);
+            std::vector<std::thread> threads;
+
             for (int i = 0; i < num_threads; ++i) {
                 int start = i * chunk_size;
                 int end = std::min((i + 1) * chunk_size, size);
@@ -56,16 +55,22 @@ int main() {
 
             for (int i = 0; i < num_threads; ++i) {
                 threads[i].join();
-                end_times[i] = std::chrono::steady_clock::now();
-                durations[i] = std::chrono::duration_cast<std::chrono::microseconds>(end_times[i] - start_times[i]).count();
             }
 
-            long long average_duration = std::accumulate(durations.begin(), durations.end(), 0LL) / num_threads;
+            std::chrono::steady_clock::time_point end_time = std::chrono::steady_clock::now();
+            long long duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
 
-            std::cout << "Результаты для " << num_threads << " потоков и вектора размером " << size << " элементов: " << average_duration << " мкс" << std::endl;
+            durations.push_back(duration);
 
             threads.clear();
         }
+
+        // Выводим результаты в виде строки
+        std::cout << num_threads;
+        for (long long duration : durations) {
+            std::cout << "\t" << duration << +"s";
+        }
+        std::cout << std::endl;
     }
 
     return 0;
